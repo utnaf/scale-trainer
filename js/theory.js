@@ -159,3 +159,20 @@ export function scaleRunMidi(tonicStr, type, octaves = 2) {
   const down = run(SCALE_TYPES[type].descendingAs ?? type).reverse().slice(1);
   return [...up, ...down];
 }
+
+export const INVERSIONS = ['stato fondamentale', 'primo rivolto', 'secondo rivolto', 'terzo rivolto'];
+
+// Riconosce un accordo diatonico dalle note suonate (numeri MIDI), ignorando ottave e raddoppi.
+// null: meno di 3 note diverse. { chord: null }: accordo non presente nella scala.
+// Altrimenti { chord, size, inversion } con inversion = indice della nota al basso nell'accordo.
+export function recognizeChord(midis, scale) {
+  const pcs = new Set(midis.map((m) => mod(m, 12)));
+  if (pcs.size < 3) return null;
+  const chords = diatonicChords(scale, pcs.size === 3 ? 3 : 4);
+  const chord = pcs.size > 4 ? null : chords.find((c) =>
+    c.notes.length === pcs.size && c.notes.every((n) => pcs.has(pitchClass(n))));
+  if (!chord) return { chord: null };
+  const bass = mod(Math.min(...midis), 12);
+  const inversion = chord.notes.findIndex((n) => pitchClass(n) === bass);
+  return { chord, size: chord.notes.length, inversion };
+}

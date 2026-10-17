@@ -67,7 +67,7 @@
                 <template x-for="c in row.chords" :key="c.degree">
                   <button
                     class="chord"
-                    :class="{ active: isSelected(row.size, c.degree) }"
+                    :class="{ active: isSelected(row.size, c.degree), played: isRecognized(row.size, c.degree) }"
                     :title="c.quality.name"
                     @click="toggleChord(row.size, c.degree)">
                     <span class="roman" x-text="c.roman"></span>
@@ -86,6 +86,23 @@
         </section>
 
         <section class="keyboard-wrap">
+          <div class="midi-bar">
+            <div class="midi-connect">
+              <button
+                class="midi-button"
+                :class="midiStatus"
+                :disabled="midiStatus !== 'off' && midiStatus !== 'error'"
+                @click="connectMidi()">
+                <span class="dot"></span>
+                <span x-text="midiLabel"></span>
+              </button>
+              <label class="toggle" x-show="midiStatus === 'on'">
+                <input type="checkbox" x-model="midiSound">
+                Suono
+              </label>
+            </div>
+            <p class="recognized" :class="{ miss: recognized && !recognized.chord }" x-text="recognizedText"></p>
+          </div>
           <div class="keyboard" role="group" aria-label="Tastiera" :style="`aspect-ratio: ${keyboard.whiteCount} / 4.2`">
             <template x-for="k in keyboard.keys" :key="k.midi">
               <button
@@ -102,6 +119,7 @@
             <li><span class="swatch tonic"></span>Tonica</li>
             <li><span class="swatch in-scale"></span>Nota della scala</li>
             <li><span class="swatch in-chord"></span>Accordo selezionato</li>
+            <li x-show="midiStatus === 'on'"><span class="swatch held"></span>Suonato (MIDI)</li>
           </ul>
         </section>
       </main>

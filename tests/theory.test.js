@@ -1,6 +1,6 @@
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleMidi, scaleRunMidi, tonicMidi, noteName, noteId, parseNote, pitchClass,
+  chordMidi, scaleMidi, scaleRunMidi, tonicMidi, recognizeChord, noteName, noteId, parseNote, pitchClass,
 } from '../js/theory.js';
 
 const results = [];
@@ -132,6 +132,35 @@ test('Scala su 2 ottave in salita e discesa', () => {
 test('Minore melodica scende come naturale', () => {
   const run = scaleRunMidi('A', 'melodicMinor', 1);
   assertEqual(run, [57, 59, 60, 62, 64, 66, 68, 69, 67, 65, 64, 62, 60, 59, 57]);
+});
+
+test('Riconoscimento: triade e quadriade in stato fondamentale', () => {
+  const scale = buildScale('C', 'major');
+  const r = recognizeChord([60, 64, 67], scale);
+  assertEqual([chordName(r.chord), r.size, r.inversion], ['C', 3, 0]);
+  const r7 = recognizeChord([55, 59, 62, 65], scale);
+  assertEqual([chordName(r7.chord), r7.chord.roman, r7.inversion], ['G7', 'V7', 0]);
+});
+
+test('Riconoscimento: rivolti, ottave e raddoppi', () => {
+  const scale = buildScale('C', 'major');
+  // Si (la terza di G7) al basso → primo rivolto.
+  assertEqual(recognizeChord([47, 55, 62, 65, 67], scale).inversion, 1);
+  // Fa al basso di G7 → terzo rivolto.
+  assertEqual(recognizeChord([53, 59, 62, 67], scale).inversion, 3);
+  // Am con La raddoppiato e Mi al basso → secondo rivolto.
+  const r = recognizeChord([52, 57, 60, 69], scale);
+  assertEqual([chordName(r.chord), r.inversion], ['Am', 2]);
+});
+
+test('Riconoscimento: grafia della scala e casi limite', () => {
+  const scale = buildScale('D#', 'harmonicMinor');
+  // La♯7: La♯ Do𝄪 Mi♯ Sol♯ (tasti La♯ Re Fa Sol♯).
+  const r = recognizeChord([58, 62, 65, 68], scale);
+  assertEqual([noteId(r.chord.notes[1]), r.chord.roman], ['C##', 'V7']);
+  assertEqual(recognizeChord([60, 64], buildScale('C', 'major')), null);
+  assertEqual(recognizeChord([62, 66, 69], buildScale('C', 'major')), { chord: null });
+  assertEqual(recognizeChord([60, 62, 64, 65, 67], buildScale('C', 'major')), { chord: null });
 });
 
 export default results;

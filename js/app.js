@@ -1,9 +1,13 @@
 import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/module.esm.js';
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleRunMidi, tonicMidi, noteName, parseNote, pitchClass,
+  chordMidi, scaleRunMidi, tonicMidi, recognizeChord, INVERSIONS, noteName, parseNote, pitchClass,
 } from './theory.js';
 import { playNote, playChord, playSequence } from './audio.js';
+import { isMidiSupported, connectMidi } from './midi.js';
+
+// Attesa prima di riconoscere l'accordo: i tasti non vengono mai premuti tutti nello stesso istante.
+const RECOGNITION_DELAY_MS = 50;
 
 // Tastiera: 2 ottave dalla tonica alla tonica. Se la tonica è un tasto nero
 // si aggiunge il bianco adiacente, così la tastiera inizia e finisce su un bianco.
@@ -55,16 +59,25 @@ Alpine.data('trainer', () => {
     arpeggio: !!prefs.arpeggio,
     selected: null, // { size, degree }
     pressed: {}, // midi → true mentre il tasto suona
+    midiStatus: isMidiSupported() ? 'off' : 'unsupported', // off | connecting | on | error | unsupported
+    midiDevices: [],
+    midiSound: prefs.midiSound ?? true,
+    held: {}, // note MIDI tenute premute sulla tastiera fisica
+    heldStable: [], // copia di `held` aggiornata dopo RECOGNITION_DELAY_MS
     typeIds: Object.keys(SCALE_TYPES),
     SCALE_TYPES,
 
     init() {
       this.$watch('lang', () => this.save());
       this.$watch('arpeggio', () => this.save());
+      this.$watch('midiSound', () => this.save());
     },
 
     save() {
-      savePrefs({ lang: this.lang, type: this.type, tonic: this.tonic, arpeggio: this.arpeggio });
+      savePrefs({
+        lang: this.lang, type: this.type, tonic: this.tonic,
+        arpeggio: this.arpeggio, midiSound: this.midiSound,
+      });
     },
 
     name(note) {
@@ -147,6 +160,7 @@ Alpine.data('trainer', () => {
         'in-chord': inChord,
         'chord-root': inChord && key.midi === this.chordKeys[0],
         pressed: !!this.pressed[key.midi],
+        held: !!this.held[key.midi],
       };
     },
 
@@ -207,6 +221,67 @@ Alpine.data('trainer', () => {
       const midis = scaleRunMidi(this.tonic, this.type, 2);
       playSequence(midis, 0.25);
       midis.forEach((m, i) => this.flash(m, i * 250, 230));
+    },
+
+    // --- MIDI ---
+
+    get midiLabel() {
+      return {
+        off: 'Collega tastiera MIDI',
+        connecting: 'Connessione…',
+        on: this.midiDevices.length ? this.midiDevices.join(', ') : 'Nessuna tastiera trovata',
+        error: 'Accesso MIDI negato',
+        unsupported: 'MIDI non supportato da questo browser',
+      }[this.midiStatus];
+    },
+
+    async connectMidi() {
+      this.midiStatus = 'connecting';
+      try {
+        await connectMidi({
+          onNoteOn: (note, velocity) => this.midiNoteOn(note, velocity),
+          onNoteOff: (note) => this.midiNoteOff(note),
+          onDevicesChange: (names) => { this.midiDevices = names; },
+        });
+        this.midiStatus = 'on';
+      } catch {
+        this.midiStatus = 'error';
+      }
+    },
+
+    midiNoteOn(note, velocity) {
+      if (this.midiSound) playNote(note, { velocity: 0.3 + (velocity / 127) * 0.5 });
+      this.held = { ...this.held, [note]: true };
+      this.scheduleRecognition();
+    },
+
+    midiNoteOff(note) {
+      const { [note]: _, ...rest } = this.held;
+      this.held = rest;
+      this.scheduleRecognition();
+    },
+
+    scheduleRecognition() {
+      clearTimeout(this._recognitionTimer);
+      this._recognitionTimer = setTimeout(() => {
+        this.heldStable = Object.keys(this.held).map(Number);
+      }, RECOGNITION_DELAY_MS);
+    },
+
+    get recognized() {
+      return recognizeChord(this.heldStable, this.scale);
+    },
+
+    get recognizedText() {
+      const r = this.recognized;
+      if (!r) return '';
+      if (!r.chord) return 'Accordo non presente nella scala';
+      return `${this.chordLabel(r.chord)} · ${r.chord.roman} · ${INVERSIONS[r.inversion]}`;
+    },
+
+    isRecognized(size, degree) {
+      const r = this.recognized;
+      return !!r?.chord && r.size === size && r.chord.degree === degree;
     },
   };
 });

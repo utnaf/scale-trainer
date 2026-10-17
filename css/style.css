@@ -305,3 +305,44 @@ h1, h2, h3 { margin: 0; }
   .chord-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .scale-head h2 { font-size: 1.3rem; }
 }
+
+/* MIDI */
+:root { --held: #2e9e6a; --held-soft: #d3efe1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --held: #4cc48b; --held-soft: #1f4233; }
+}
+:root[data-theme="dark"] { --held: #4cc48b; --held-soft: #1f4233; }
+
+.midi-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  min-height: 34px;
+}
+.midi-connect { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.midi-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+.midi-button:not(:disabled):hover { border-color: var(--held); }
+.midi-button:disabled { cursor: default; }
+.midi-button .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.midi-button.on .dot { background: var(--held); }
+.midi-button.error .dot,
+.midi-button.unsupported .dot { background: #d14b3a; }
+
+.recognized { margin: 0; font-weight: 600; color: var(--held); }
+.recognized.miss { color: var(--muted); font-weight: 500; }
+
+.chord.played { border-color: var(--held); box-shadow: 0 0 0 2px var(--held); }
+.key.held { background: var(--held) !important; color: #fff; }
+.swatch.held { background: var(--held); }
