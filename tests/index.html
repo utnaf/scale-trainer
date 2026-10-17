@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Test teoria</title>
+  <title>Test</title>
   <style>
     body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem; background: #fff; color: #111; }
     .ok { color: #0a7a3a; }
@@ -15,7 +15,9 @@
   <h1 id="summary">Test in esecuzione…</h1>
   <ul id="list"></ul>
   <script type="module">
-    import results from './theory.test.js';
+    import { results } from './harness.js';
+    import './theory.test.js';
+    import './exercises.test.js';
     const failed = results.filter((r) => !r.ok);
     const summary = document.getElementById('summary');
     summary.textContent = failed.length

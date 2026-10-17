@@ -2,23 +2,7 @@ import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
   chordMidi, scaleMidi, scaleRunMidi, tonicMidi, recognizeChord, noteName, noteId, parseNote, pitchClass,
 } from '../js/theory.js';
-
-const results = [];
-
-function test(name, fn) {
-  try {
-    fn();
-    results.push({ name, ok: true });
-  } catch (e) {
-    results.push({ name, ok: false, error: e.message });
-  }
-}
-
-function assertEqual(actual, expected) {
-  const a = JSON.stringify(actual);
-  const b = JSON.stringify(expected);
-  if (a !== b) throw new Error(`atteso ${b}, ottenuto ${a}`);
-}
+import { test, assertEqual } from './harness.js';
 
 const ids = (notes) => notes.map(noteId);
 const names = (chords) => chords.map((c) => chordName(c));
@@ -163,4 +147,3 @@ test('Riconoscimento: grafia della scala e casi limite', () => {
   assertEqual(recognizeChord([60, 62, 64, 65, 67], buildScale('C', 'major')), { chord: null });
 });
 
-export default results;

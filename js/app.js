@@ -5,9 +5,15 @@ import {
 } from './theory.js';
 import { playNote, playChord, playSequence } from './audio.js';
 import { isMidiSupported, connectMidi } from './midi.js';
+import {
+  EXERCISES, DEFAULT_OPTIONS, makeQuestion, questionMidi, judgeMidi,
+} from './exercises.js';
 
 // Attesa prima di riconoscere l'accordo: i tasti non vengono mai premuti tutti nello stesso istante.
+// Negli esercizi è più lunga, per non dare "sbagliato" mentre si stanno ancora premendo i tasti.
 const RECOGNITION_DELAY_MS = 50;
+const EXERCISE_DELAY_MS = 300;
+const NEXT_QUESTION_MS = 1200;
 
 // Tastiera: 2 ottave dalla tonica alla tonica. Se la tonica è un tasto nero
 // si aggiunge il bianco adiacente, così la tastiera inizia e finisce su un bianco.
@@ -66,17 +72,32 @@ Alpine.data('trainer', () => {
     heldStable: [], // copia di `held` aggiornata dopo RECOGNITION_DELAY_MS
     typeIds: Object.keys(SCALE_TYPES),
     SCALE_TYPES,
+    EXERCISES,
+
+    mode: prefs.mode === 'exercise' ? 'exercise' : 'explore',
+    exercise: EXERCISES[prefs.exercise] ? prefs.exercise : 'playDegree',
+    opts: { ...DEFAULT_OPTIONS, ...prefs.opts },
+    question: null,
+    feedback: 'idle', // idle | correct | wrong
+    wrongChoices: {}, // id → true per le risposte sbagliate già cliccate
+    solutionShown: false,
 
     init() {
       this.$watch('lang', () => this.save());
       this.$watch('arpeggio', () => this.save());
       this.$watch('midiSound', () => this.save());
+      this.$watch('opts', () => {
+        this.save();
+        this.newQuestion();
+      });
+      if (this.mode === 'exercise') this.newQuestion();
     },
 
     save() {
       savePrefs({
         lang: this.lang, type: this.type, tonic: this.tonic,
         arpeggio: this.arpeggio, midiSound: this.midiSound,
+        mode: this.mode, exercise: this.exercise, opts: this.opts,
       });
     },
 
@@ -95,8 +116,19 @@ Alpine.data('trainer', () => {
       });
     },
 
+    // Negli esercizi la tastiera mostra la tonalità della domanda, in "Esplora" quella scelta.
+    get activeKey() {
+      return this.mode === 'exercise' && this.question
+        ? { tonic: this.question.tonic, type: this.question.type }
+        : { tonic: this.tonic, type: this.type };
+    },
+
     get scale() {
-      return buildScale(this.tonic, this.type);
+      return buildScale(this.activeKey.tonic, this.activeKey.type);
+    },
+
+    get showScaleHints() {
+      return this.mode === 'explore' || this.opts.showScale;
     },
 
     get tonicMidi() {
@@ -108,7 +140,7 @@ Alpine.data('trainer', () => {
     },
 
     get title() {
-      return `${this.name(this.scale[0])} ${SCALE_TYPES[this.type].suffix}`;
+      return `${this.name(this.scale[0])} ${SCALE_TYPES[this.activeKey.type].suffix}`;
     },
 
     get chordRows() {
@@ -124,6 +156,11 @@ Alpine.data('trainer', () => {
     },
 
     get chordKeys() {
+      if (this.mode === 'exercise') {
+        const q = this.question;
+        const visible = q && (q.exercise === 'nameChord' || this.solutionShown);
+        return visible ? questionMidi(q) : [];
+      }
       const chord = this.selectedChord;
       return chord ? chordMidi(chord.notes, this.tonicMidi) : [];
     },
@@ -146,6 +183,7 @@ Alpine.data('trainer', () => {
     },
 
     keyLabel(key) {
+      if (!this.showScaleHints) return '';
       const note = this.scaleNoteAt(key);
       return note ? this.name(note) : '';
     },
@@ -155,12 +193,14 @@ Alpine.data('trainer', () => {
       return {
         black: key.black,
         white: !key.black,
-        'in-scale': !!this.scaleNoteAt(key),
-        tonic: key.pc === pitchClass(this.scale[0]),
+        'in-scale': this.showScaleHints && !!this.scaleNoteAt(key),
+        tonic: this.showScaleHints && key.pc === pitchClass(this.scale[0]),
         'in-chord': inChord,
-        'chord-root': inChord && key.midi === this.chordKeys[0],
+        // Negli esercizi non si segna la fondamentale: sarebbe un suggerimento.
+        'chord-root': this.mode === 'explore' && inChord && key.midi === this.chordKeys[0],
         pressed: !!this.pressed[key.midi],
         held: !!this.held[key.midi],
+        wrong: !!this.held[key.midi] && this.feedback === 'wrong',
       };
     },
 
@@ -263,9 +303,11 @@ Alpine.data('trainer', () => {
 
     scheduleRecognition() {
       clearTimeout(this._recognitionTimer);
+      const delay = this.isMidiExercise ? EXERCISE_DELAY_MS : RECOGNITION_DELAY_MS;
       this._recognitionTimer = setTimeout(() => {
         this.heldStable = Object.keys(this.held).map(Number);
-      }, RECOGNITION_DELAY_MS);
+        if (this.isMidiExercise) this.judgeHeld();
+      }, delay);
     },
 
     get recognized() {
@@ -282,6 +324,111 @@ Alpine.data('trainer', () => {
     isRecognized(size, degree) {
       const r = this.recognized;
       return !!r?.chord && r.size === size && r.chord.degree === degree;
+    },
+
+    // --- Esercizi ---
+
+    get isMidiExercise() {
+      return this.mode === 'exercise' && !!this.question && EXERCISES[this.exercise].midi;
+    },
+
+    setMode(mode) {
+      this.mode = mode;
+      if (mode === 'exercise') this.newQuestion();
+      else clearTimeout(this._nextTimer);
+      this.save();
+    },
+
+    setExercise(id) {
+      this.exercise = id;
+      this.newQuestion();
+      this.save();
+    },
+
+    newQuestion() {
+      if (this.mode !== 'exercise') return;
+      clearTimeout(this._nextTimer);
+      this.question = makeQuestion(this.exercise, this.opts, { tonic: this.tonic, type: this.type }, this.question);
+      this.feedback = 'idle';
+      this.wrongChoices = {};
+      this.solutionShown = false;
+    },
+
+    succeed() {
+      this.feedback = 'correct';
+      clearTimeout(this._nextTimer);
+      this._nextTimer = setTimeout(() => this.newQuestion(), NEXT_QUESTION_MS);
+    },
+
+    judgeHeld() {
+      if (this.feedback === 'correct') return;
+      const result = judgeMidi(this.question, this.heldStable);
+      if (result === 'correct') this.succeed();
+      else this.feedback = result === 'wrong' ? 'wrong' : 'idle';
+    },
+
+    chooseAnswer(choice) {
+      if (this.feedback === 'correct' || this.wrongChoices[choice.id]) return;
+      if (choice.correct) {
+        this.succeed();
+      } else {
+        this.wrongChoices = { ...this.wrongChoices, [choice.id]: true };
+        this.feedback = 'wrong';
+      }
+    },
+
+    choiceLabel(choice) {
+      return choice.roman ?? this.name(choice.root) + choice.quality.suffix;
+    },
+
+    choiceClasses(choice) {
+      return {
+        wrong: !!this.wrongChoices[choice.id],
+        right: choice.correct && (this.feedback === 'correct' || this.solutionShown),
+      };
+    },
+
+    showSolution() {
+      this.solutionShown = true;
+      this.playQuestion();
+    },
+
+    playQuestion() {
+      const midis = questionMidi(this.question);
+      playChord(midis, { arpeggio: this.arpeggio });
+    },
+
+    get exploreKeyLabel() {
+      return `${this.name(parseNote(this.tonic))} ${SCALE_TYPES[this.type].suffix}`;
+    },
+
+    get questionKey() {
+      return this.question ? `in ${this.title}` : '';
+    },
+
+    get prompt() {
+      const q = this.question;
+      if (!q) return '';
+      if (q.exercise === 'playDegree') return q.chord.roman;
+      if (q.exercise === 'playChord') return this.chordLabel(q.chord);
+      return this.opts.answer === 'degree' ? 'Che grado è?' : 'Che accordo è?';
+    },
+
+    get promptInversion() {
+      const q = this.question;
+      return q && q.inversion !== null && EXERCISES[q.exercise].midi ? INVERSIONS[q.inversion] : '';
+    },
+
+    get feedbackText() {
+      if (this.feedback === 'correct') return 'Giusto!';
+      if (this.feedback !== 'wrong') return '';
+      if (!this.isMidiExercise) return 'No, riprova';
+      const r = this.recognized;
+      if (!r?.chord) return 'Non è questo, riprova';
+      const played = this.question.inversion !== null
+        ? `${this.chordLabel(r.chord)}, ${INVERSIONS[r.inversion]}`
+        : `${this.chordLabel(r.chord)} (${r.chord.roman})`;
+      return `Hai suonato ${played}, riprova`;
     },
   };
 });

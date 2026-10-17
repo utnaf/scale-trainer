@@ -12,6 +12,10 @@
   <div class="app" x-data="trainer" x-cloak>
     <header class="topbar">
       <h1>Scale Trainer</h1>
+      <div class="segmented mode-switch" role="group" aria-label="Modalità">
+        <button :class="{ active: mode === 'explore' }" @click="setMode('explore')">Esplora</button>
+        <button :class="{ active: mode === 'exercise' }" @click="setMode('exercise')">Esercizi</button>
+      </div>
       <div class="segmented" role="group" aria-label="Nomi delle note">
         <button :class="{ active: lang === 'it' }" @click="lang = 'it'">Do Re Mi</button>
         <button :class="{ active: lang === 'en' }" @click="lang = 'en'">C D E</button>
@@ -19,7 +23,7 @@
     </header>
 
     <div class="layout">
-      <aside class="sidebar">
+      <aside class="sidebar" x-show="mode === 'explore'">
         <nav class="type-tabs" aria-label="Tipo di scala">
           <template x-for="id in typeIds" :key="id">
             <button :class="{ active: type === id }" @click="setType(id)" x-text="SCALE_TYPES[id].label"></button>
@@ -37,8 +41,75 @@
         </ul>
       </aside>
 
+      <aside class="sidebar" x-show="mode === 'exercise'">
+        <nav class="type-tabs" aria-label="Esercizio">
+          <template x-for="(ex, id) in EXERCISES" :key="id">
+            <button :class="{ active: exercise === id }" @click="setExercise(id)" x-text="ex.label"></button>
+          </template>
+        </nav>
+        <div class="options">
+          <fieldset>
+            <legend>Accordi</legend>
+            <label><input type="checkbox" x-model="opts.triads" :disabled="!opts.sevenths"> Triadi</label>
+            <label><input type="checkbox" x-model="opts.sevenths" :disabled="!opts.triads"> Quadriadi</label>
+          </fieldset>
+          <fieldset>
+            <legend>Rivolti</legend>
+            <label>
+              <input type="checkbox" x-model="opts.inversions">
+              <span x-text="EXERCISES[exercise].midi ? 'Chiedi un rivolto preciso' : 'Mostra anche i rivolti'"></span>
+            </label>
+          </fieldset>
+          <fieldset x-show="exercise === 'nameChord'">
+            <legend>Rispondi con</legend>
+            <label><input type="radio" value="name" x-model="opts.answer"> Nome dell'accordo</label>
+            <label><input type="radio" value="degree" x-model="opts.answer"> Grado</label>
+          </fieldset>
+          <fieldset>
+            <legend>Tonalità</legend>
+            <label>
+              <input type="radio" value="current" x-model="opts.keyMode">
+              <span x-text="`Scala scelta (${exploreKeyLabel})`"></span>
+            </label>
+            <label><input type="radio" value="random" x-model="opts.keyMode"> Casuale</label>
+            <div class="sub-options" x-show="opts.keyMode === 'random'">
+              <label><input type="checkbox" x-model="opts.majors" :disabled="!opts.minors"> Maggiori</label>
+              <label><input type="checkbox" x-model="opts.minors" :disabled="!opts.majors"> Minori (tutte)</label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Aiuti</legend>
+            <label><input type="checkbox" x-model="opts.showScale"> Mostra la scala sulla tastiera</label>
+          </fieldset>
+        </div>
+      </aside>
+
       <main class="main">
-        <section class="scale-head">
+        <section class="question" x-show="mode === 'exercise' && question">
+          <p class="question-key" x-text="questionKey"></p>
+          <p class="question-prompt" x-text="prompt"></p>
+          <p class="question-inversion" x-show="promptInversion" x-text="promptInversion"></p>
+
+          <div class="choices" x-show="exercise === 'nameChord'">
+            <template x-for="c in question?.choices ?? []" :key="c.id">
+              <button class="choice" :class="choiceClasses(c)" @click="chooseAnswer(c)" x-text="choiceLabel(c)"></button>
+            </template>
+          </div>
+
+          <p class="midi-needed" x-show="EXERCISES[exercise].midi && midiStatus !== 'on'">
+            Questo esercizio si fa con la tastiera MIDI: collegala qui sotto.
+          </p>
+
+          <p class="feedback" :class="feedback" x-text="feedbackText"></p>
+
+          <div class="question-actions">
+            <button class="secondary" x-show="exercise === 'nameChord'" @click="playQuestion()">▶ Ascolta</button>
+            <button class="secondary" @click="showSolution()" :disabled="solutionShown || feedback === 'correct'">Mostra soluzione</button>
+            <button class="secondary" @click="newQuestion()">Salta →</button>
+          </div>
+        </section>
+
+        <section class="scale-head" x-show="mode === 'explore'">
           <div>
             <h2 x-text="title"></h2>
             <p class="scale-notes">
@@ -53,7 +124,7 @@
           <button class="play" @click="playScale()">▶ Suona la scala</button>
         </section>
 
-        <section class="chords">
+        <section class="chords" x-show="mode === 'explore'">
           <div class="chords-head">
             <h3>Accordi della scala</h3>
             <label class="toggle">
@@ -102,7 +173,7 @@
                 Suono
               </label>
             </div>
-            <p class="recognized" :class="{ miss: recognized && !recognized.chord }" x-text="recognizedText"></p>
+            <p class="recognized" x-show="mode === 'explore'" :class="{ miss: recognized && !recognized.chord }" x-text="recognizedText"></p>
           </div>
           <div class="keyboard" role="group" aria-label="Tastiera" :style="`aspect-ratio: ${keyboard.whiteCount} / 4.2`">
             <template x-for="k in keyboard.keys" :key="k.midi">
@@ -117,9 +188,9 @@
             </template>
           </div>
           <ul class="legend">
-            <li><span class="swatch tonic"></span>Tonica</li>
-            <li><span class="swatch in-scale"></span>Nota della scala</li>
-            <li><span class="swatch in-chord"></span>Accordo selezionato</li>
+            <li x-show="showScaleHints"><span class="swatch tonic"></span>Tonica</li>
+            <li x-show="showScaleHints"><span class="swatch in-scale"></span>Nota della scala</li>
+            <li x-show="mode === 'explore' || exercise === 'nameChord' || solutionShown"><span class="swatch in-chord"></span><span x-text="mode === 'explore' ? 'Accordo selezionato' : (exercise === 'nameChord' ? 'Accordo da riconoscere' : 'Soluzione')"></span></li>
             <li x-show="midiStatus === 'on'"><span class="swatch held"></span>Suonato (MIDI)</li>
           </ul>
         </section>
