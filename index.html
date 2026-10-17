@@ -46,7 +46,7 @@
               </template>
             </p>
             <p class="hint" x-show="type === 'melodicMinor'">
-              Forma ascendente. In discesa si suona di solito come la minore naturale.
+              Forma ascendente. In discesa si suona come la minore naturale (anche nel ▶).
             </p>
           </div>
           <button class="play" @click="playScale()">▶ Suona la scala</button>
@@ -86,8 +86,8 @@
         </section>
 
         <section class="keyboard-wrap">
-          <div class="keyboard" role="group" aria-label="Tastiera">
-            <template x-for="k in keys" :key="k.midi">
+          <div class="keyboard" role="group" aria-label="Tastiera" :style="`aspect-ratio: ${keyboard.whiteCount} / 4.2`">
+            <template x-for="k in keyboard.keys" :key="k.midi">
               <button
                 class="key"
                 :class="keyClasses(k)"

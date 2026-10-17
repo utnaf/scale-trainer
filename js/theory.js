@@ -69,6 +69,7 @@ export const SCALE_TYPES = {
     steps: [0, 2, 3, 5, 7, 9, 11],
     tonics: MINOR_TONICS,
     signatureOf: 'naturalMinor',
+    descendingAs: 'naturalMinor',
     label: 'Minore melodica',
     suffix: 'minore melodica',
   },
@@ -126,9 +127,14 @@ export function chordName(chord, lang = 'en') {
   return noteName(chord.root, lang) + chord.quality.suffix;
 }
 
-// Voicing in stato fondamentale: fondamentale nella prima ottava da `base`, poi note ascendenti.
+// Tasto MIDI della tonica: sempre nell'ottava Do3–Si3.
+export function tonicMidi(scale) {
+  return 48 + pitchClass(scale[0]);
+}
+
+// Voicing in stato fondamentale: fondamentale sul primo tasto ≥ `base`, poi note ascendenti.
 export function chordMidi(notes, base = 48) {
-  const midis = [base + pitchClass(notes[0])];
+  const midis = [base + mod(pitchClass(notes[0]) - base, 12)];
   for (const n of notes.slice(1)) {
     const prev = midis[midis.length - 1];
     midis.push(prev + (mod(pitchClass(n) - prev, 12) || 12));
@@ -139,4 +145,17 @@ export function chordMidi(notes, base = 48) {
 // Scala ascendente di un'ottava (8 note, tonica ripetuta in alto).
 export function scaleMidi(scale, base = 48) {
   return chordMidi([...scale, scale[0]], base);
+}
+
+// Scala su più ottave, in salita e in discesa dalla tonica.
+// La melodica scende come minore naturale.
+export function scaleRunMidi(tonicStr, type, octaves = 2) {
+  const run = (t) => {
+    const scale = buildScale(tonicStr, t);
+    const notes = Array.from({ length: octaves }, () => scale).flat();
+    return chordMidi([...notes, scale[0]], tonicMidi(scale));
+  };
+  const up = run(type);
+  const down = run(SCALE_TYPES[type].descendingAs ?? type).reverse().slice(1);
+  return [...up, ...down];
 }

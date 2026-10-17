@@ -241,7 +241,6 @@ h1, h2, h3 { margin: 0; }
 .keyboard {
   position: relative;
   width: 100%;
-  aspect-ratio: 15 / 4.2;
   user-select: none;
   touch-action: manipulation;
 }

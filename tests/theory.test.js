@@ -1,6 +1,6 @@
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleMidi, noteName, noteId, parseNote, pitchClass,
+  chordMidi, scaleMidi, scaleRunMidi, tonicMidi, noteName, noteId, parseNote, pitchClass,
 } from '../js/theory.js';
 
 const results = [];
@@ -109,6 +109,29 @@ test('Voicing MIDI', () => {
   assertEqual(chordMidi(['B', 'D#', 'F#', 'A#'].map(parseNote)), [59, 63, 66, 70]);
   assertEqual(chordMidi(['B#', 'D##', 'F##'].map(parseNote)), [48, 52, 55]);
   assertEqual(scaleMidi(buildScale('Cb', 'major'))[7], 71);
+});
+
+test('Accordi partono dalla tonica e salgono', () => {
+  const scale = buildScale('G', 'major');
+  const base = tonicMidi(scale);
+  assertEqual(base, 55);
+  const roots = diatonicChords(scale, 4).map((c) => chordMidi(c.notes, base)[0]);
+  assertEqual(roots, [55, 57, 59, 60, 62, 64, 66]);
+  // vii7 di Si maggiore: la settima resta entro le 2 ottave dalla tonica.
+  const b = buildScale('B', 'major');
+  const top = chordMidi(diatonicChords(b, 4)[6].notes, tonicMidi(b))[3];
+  if (top > tonicMidi(b) + 24) throw new Error(`fuori tastiera: ${top}`);
+});
+
+test('Scala su 2 ottave in salita e discesa', () => {
+  const run = scaleRunMidi('C', 'major', 2);
+  assertEqual(run.length, 29);
+  assertEqual([run[0], run[14], run[28]], [48, 72, 48]);
+});
+
+test('Minore melodica scende come naturale', () => {
+  const run = scaleRunMidi('A', 'melodicMinor', 1);
+  assertEqual(run, [57, 59, 60, 62, 64, 66, 68, 69, 67, 65, 64, 62, 60, 59, 57]);
 });
 
 export default results;

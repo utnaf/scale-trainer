@@ -1,27 +1,31 @@
 import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/module.esm.js';
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleMidi, noteName, parseNote, pitchClass,
+  chordMidi, scaleRunMidi, tonicMidi, noteName, parseNote, pitchClass,
 } from './theory.js';
 import { playNote, playChord, playSequence } from './audio.js';
 
-// Tastiera: Do3–Do5, 2 ottave + il Do finale (25 tasti, 15 bianchi).
-const FIRST_MIDI = 48;
-const LAST_MIDI = 72;
+// Tastiera: 2 ottave dalla tonica alla tonica. Se la tonica è un tasto nero
+// si aggiunge il bianco adiacente, così la tastiera inizia e finisce su un bianco.
 const BLACK_PCS = new Set([1, 3, 6, 8, 10]);
-const WHITE_WIDTH = 100 / 15;
-const BLACK_WIDTH = WHITE_WIDTH * 0.62;
+const isBlack = (midi) => BLACK_PCS.has(midi % 12);
 
-function buildKeys() {
+function buildKeys(tonic) {
+  const first = isBlack(tonic) ? tonic - 1 : tonic;
+  const last = isBlack(tonic) ? tonic + 25 : tonic + 24;
+  let whiteCount = 0;
+  for (let m = first; m <= last; m++) if (!isBlack(m)) whiteCount++;
+  const whiteWidth = 100 / whiteCount;
+  const blackWidth = whiteWidth * 0.62;
+
   const keys = [];
   let whites = 0;
-  for (let midi = FIRST_MIDI; midi <= LAST_MIDI; midi++) {
-    const pc = midi % 12;
-    const black = BLACK_PCS.has(pc);
-    const left = black ? whites * WHITE_WIDTH - BLACK_WIDTH / 2 : whites++ * WHITE_WIDTH;
-    keys.push({ midi, pc, black, left, width: black ? BLACK_WIDTH : WHITE_WIDTH });
+  for (let midi = first; midi <= last; midi++) {
+    const black = isBlack(midi);
+    const left = black ? whites * whiteWidth - blackWidth / 2 : whites++ * whiteWidth;
+    keys.push({ midi, pc: midi % 12, black, left, width: black ? blackWidth : whiteWidth });
   }
-  return keys;
+  return { keys, whiteCount };
 }
 
 // localStorage solo per le preferenze: può non essere disponibile.
@@ -51,7 +55,6 @@ Alpine.data('trainer', () => {
     arpeggio: !!prefs.arpeggio,
     selected: null, // { size, degree }
     pressed: {}, // midi → true mentre il tasto suona
-    keys: buildKeys(),
     typeIds: Object.keys(SCALE_TYPES),
     SCALE_TYPES,
 
@@ -83,6 +86,14 @@ Alpine.data('trainer', () => {
       return buildScale(this.tonic, this.type);
     },
 
+    get tonicMidi() {
+      return tonicMidi(this.scale);
+    },
+
+    get keyboard() {
+      return buildKeys(this.tonicMidi);
+    },
+
     get title() {
       return `${this.name(this.scale[0])} ${SCALE_TYPES[this.type].suffix}`;
     },
@@ -101,7 +112,7 @@ Alpine.data('trainer', () => {
 
     get chordKeys() {
       const chord = this.selectedChord;
-      return chord ? chordMidi(chord.notes, FIRST_MIDI) : [];
+      return chord ? chordMidi(chord.notes, this.tonicMidi) : [];
     },
 
     chordLabel(chord) {
@@ -193,9 +204,9 @@ Alpine.data('trainer', () => {
     },
 
     playScale() {
-      const midis = scaleMidi(this.scale, FIRST_MIDI);
-      playSequence(midis, 0.32);
-      midis.forEach((m, i) => this.flash(m, i * 320, 300));
+      const midis = scaleRunMidi(this.tonic, this.type, 2);
+      playSequence(midis, 0.25);
+      midis.forEach((m, i) => this.flash(m, i * 250, 230));
     },
   };
 });
