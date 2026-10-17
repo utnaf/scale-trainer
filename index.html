@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scale Trainer</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="app" x-data="trainer" x-cloak>
+    <header class="topbar">
+      <h1>Scale Trainer</h1>
+      <div class="segmented" role="group" aria-label="Nomi delle note">
+        <button :class="{ active: lang === 'it' }" @click="lang = 'it'">Do Re Mi</button>
+        <button :class="{ active: lang === 'en' }" @click="lang = 'en'">C D E</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="type-tabs" aria-label="Tipo di scala">
+          <template x-for="id in typeIds" :key="id">
+            <button :class="{ active: type === id }" @click="setType(id)" x-text="SCALE_TYPES[id].label"></button>
+          </template>
+        </nav>
+        <ul class="tonic-list">
+          <template x-for="t in tonicList" :key="t.id">
+            <li>
+              <button :class="{ active: tonic === t.id }" @click="setTonic(t.id)">
+                <span x-text="t.name"></span>
+                <span class="sig" x-text="t.signature"></span>
+              </button>
+            </li>
+          </template>
+        </ul>
+      </aside>
+
+      <main class="main">
+        <section class="scale-head">
+          <div>
+            <h2 x-text="title"></h2>
+            <p class="scale-notes">
+              <template x-for="(n, i) in scale" :key="i">
+                <span class="note-chip" :class="{ tonic: i === 0 }" x-text="name(n)"></span>
+              </template>
+            </p>
+            <p class="hint" x-show="type === 'melodicMinor'">
+              Forma ascendente. In discesa si suona di solito come la minore naturale.
+            </p>
+          </div>
+          <button class="play" @click="playScale()">▶ Suona la scala</button>
+        </section>
+
+        <section class="chords">
+          <div class="chords-head">
+            <h3>Accordi della scala</h3>
+            <label class="toggle">
+              <input type="checkbox" x-model="arpeggio">
+              Arpeggiato
+            </label>
+          </div>
+          <template x-for="row in chordRows" :key="row.size">
+            <div class="chord-row">
+              <span class="row-label" x-text="row.label"></span>
+              <div class="chord-grid">
+                <template x-for="c in row.chords" :key="c.degree">
+                  <button
+                    class="chord"
+                    :class="{ active: isSelected(row.size, c.degree) }"
+                    :title="c.quality.name"
+                    @click="toggleChord(row.size, c.degree)">
+                    <span class="roman" x-text="c.roman"></span>
+                    <span class="chord-name" x-text="chordLabel(c)"></span>
+                    <span class="chord-notes" x-text="chordNotes(c)"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+          <p class="selected-info" :class="{ empty: !selectedChord }">
+            <strong x-text="selectedChord && chordLabel(selectedChord)"></strong>
+            <span x-text="selectedChord && '· ' + selectedChord.quality.name"></span>
+            <button class="link" @click="playSelectedChord()">▶ risuona</button>
+          </p>
+        </section>
+
+        <section class="keyboard-wrap">
+          <div class="keyboard" role="group" aria-label="Tastiera">
+            <template x-for="k in keys" :key="k.midi">
+              <button
+                class="key"
+                :class="keyClasses(k)"
+                :style="keyStyle(k)"
+                :aria-label="keyLabel(k) || 'tasto'"
+                @pointerdown.prevent="pressKey(k)">
+                <span class="key-label" x-text="keyLabel(k)"></span>
+              </button>
+            </template>
+          </div>
+          <ul class="legend">
+            <li><span class="swatch tonic"></span>Tonica</li>
+            <li><span class="swatch in-scale"></span>Nota della scala</li>
+            <li><span class="swatch in-chord"></span>Accordo selezionato</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

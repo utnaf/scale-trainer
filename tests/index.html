@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test teoria</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem; background: #fff; color: #111; }
+    .ok { color: #0a7a3a; }
+    .ko { color: #b42318; }
+    li { margin: .2rem 0; }
+  </style>
+</head>
+<body>
+  <h1 id="summary">Test in esecuzione…</h1>
+  <ul id="list"></ul>
+  <script type="module">
+    import results from './theory.test.js';
+    const failed = results.filter((r) => !r.ok);
+    const summary = document.getElementById('summary');
+    summary.textContent = failed.length
+      ? `${failed.length} su ${results.length} test falliti`
+      : `Tutti i ${results.length} test passati`;
+    summary.className = failed.length ? 'ko' : 'ok';
+    document.getElementById('list').innerHTML = results
+      .map((r) => `<li class="${r.ok ? 'ok' : 'ko'}">${r.ok ? '✓' : '✗'} ${r.name}${r.error ? ` — ${r.error}` : ''}</li>`)
+      .join('');
+  </script>
+</body>
+</html>
