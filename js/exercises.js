@@ -2,12 +2,14 @@
 
 import {
   SCALE_TYPES, CHORD_QUALITIES, buildScale, diatonicChords, chordMidi, tonicMidi, pitchClass, noteId,
+  scaleRunMidi,
 } from './theory.js';
 
 export const EXERCISES = {
   playDegree: { label: 'Suona il grado', midi: true },
   playChord: { label: "Suona l'accordo", midi: true },
   nameChord: { label: "Riconosci l'accordo", midi: false },
+  playScale: { label: 'Suona la scala', midi: true },
 };
 
 export const DEFAULT_OPTIONS = {
@@ -45,7 +47,25 @@ export function pickKey(opts, current, rng = Math.random) {
 const sameQuestion = (a, b) =>
   a.tonic === b.tonic && a.type === b.type && a.size === b.size && a.degree === b.degree && a.inversion === b.inversion;
 
+// Scala di un'ottava in salita e discesa: 15 note, con offset in semitoni dalla tonica.
+// La melodica scende come minore naturale.
+function scaleQuestion(tonic, type) {
+  const scale = buildScale(tonic, type);
+  const down = buildScale(tonic, SCALE_TYPES[type].descendingAs ?? type);
+  const notes = [...scale, scale[0], ...[...down].reverse()];
+  const run = scaleRunMidi(tonic, type, 1);
+  return { exercise: 'playScale', tonic, type, scale, notes, offsets: run.map((m) => m - run[0]) };
+}
+
 export function makeQuestion(exercise, opts, current, previous = null, rng = Math.random) {
+  if (exercise === 'playScale') {
+    for (let attempt = 0; ; attempt++) {
+      const { tonic, type } = pickKey(opts, current, rng);
+      const sameAsPrevious = previous && previous.tonic === tonic && previous.type === type;
+      if (sameAsPrevious && opts.keyMode === 'random' && attempt < 20) continue;
+      return scaleQuestion(tonic, type);
+    }
+  }
   const sizes = [...(opts.triads ? [3] : []), ...(opts.sevenths ? [4] : [])];
   for (let attempt = 0; ; attempt++) {
     const { tonic, type } = pickKey(opts, current, rng);
@@ -102,4 +122,12 @@ export function judgeMidi(q, midis) {
   if (q.inversion === null) return 'correct';
   const bass = mod(Math.min(...midis), 12);
   return bass === pitchClass(q.chord.notes[q.inversion]) ? 'correct' : 'wrong';
+}
+
+// Verifica una nota di "Suona la scala". progress: note già suonate giuste;
+// start: tasto MIDI della prima tonica suonata (qualsiasi ottava).
+// Dopo la prima nota la scala deve essere continua: conta il tasto esatto, non solo il nome.
+export function judgeScaleNote(q, progress, start, midi) {
+  if (progress === 0) return mod(midi, 12) === pitchClass(q.scale[0]);
+  return midi === start + q.offsets[progress];
 }

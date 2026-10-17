@@ -4,10 +4,11 @@ Web app per studiare le scale: scale maggiori e minori (naturale, armonica, melo
 
 Con una tastiera MIDI collegata (Chrome, Edge o Firefox; Safari non supporta Web MIDI) riconosce gli accordi della scala che stai suonando, con il rivolto.
 
-La modalità **Esercizi** propone tre esercizi liberi, senza punteggi:
+La modalità **Esercizi** propone quattro esercizi liberi, senza punteggi:
 - **Suona il grado** (MIDI): l'app chiede per esempio "ii7" e tu lo suoni;
 - **Suona l'accordo** (MIDI): l'app dà il nome, per esempio "Fa♯m7", e tu lo suoni;
-- **Riconosci l'accordo**: un accordo si accende sulla tastiera e scegli fra 4 risposte (nome o grado).
+- **Riconosci l'accordo**: un accordo si accende sulla tastiera e scegli fra 4 risposte (nome o grado);
+- **Suona la scala** (MIDI): un'ottava in salita e discesa, verificata nota per nota in qualsiasi ottava.
 
 Nessuna build e nessuna dipendenza da installare: Alpine.js viene caricato da CDN.
 

@@ -48,12 +48,12 @@
           </template>
         </nav>
         <div class="options">
-          <fieldset>
+          <fieldset x-show="exercise !== 'playScale'">
             <legend>Accordi</legend>
             <label><input type="checkbox" x-model="opts.triads" :disabled="!opts.sevenths"> Triadi</label>
             <label><input type="checkbox" x-model="opts.sevenths" :disabled="!opts.triads"> Quadriadi</label>
           </fieldset>
-          <fieldset>
+          <fieldset x-show="exercise !== 'playScale'">
             <legend>Rivolti</legend>
             <label>
               <input type="checkbox" x-model="opts.inversions">
@@ -89,6 +89,14 @@
           <p class="question-key" x-text="questionKey"></p>
           <p class="question-prompt" x-text="prompt"></p>
           <p class="question-inversion" x-show="promptInversion" x-text="promptInversion"></p>
+
+          <ol class="scale-progress" x-show="exercise === 'playScale'">
+            <template x-for="(n, i) in question?.notes ?? []" :key="i">
+              <li
+                :class="{ done: i < scaleProgress, current: i === scaleProgress && feedback !== 'correct', wrong: i === scaleProgress && feedback === 'wrong' }"
+                x-text="scaleChipLabel(n, i)"></li>
+            </template>
+          </ol>
 
           <div class="choices" x-show="exercise === 'nameChord'">
             <template x-for="c in question?.choices ?? []" :key="c.id">

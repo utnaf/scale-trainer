@@ -422,3 +422,28 @@ h1, h2, h3 { margin: 0; }
 @media (max-width: 760px) {
   .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Suona la scala */
+.scale-progress {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 720px;
+  margin: 16px auto 0;
+  padding: 0;
+}
+.scale-progress li {
+  min-width: 2.3em;
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.scale-progress li.done { background: var(--held-soft); border-color: var(--held); color: var(--text); }
+.scale-progress li.current { border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 2px var(--accent-soft); }
+.scale-progress li.wrong { border-color: var(--wrong); background: var(--wrong-soft); }

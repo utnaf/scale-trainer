@@ -6,7 +6,7 @@ import {
 import { playNote, playChord, playSequence } from './audio.js';
 import { isMidiSupported, connectMidi } from './midi.js';
 import {
-  EXERCISES, DEFAULT_OPTIONS, makeQuestion, questionMidi, judgeMidi,
+  EXERCISES, DEFAULT_OPTIONS, makeQuestion, questionMidi, judgeMidi, judgeScaleNote,
 } from './exercises.js';
 
 // Attesa prima di riconoscere l'accordo: i tasti non vengono mai premuti tutti nello stesso istante.
@@ -81,6 +81,8 @@ Alpine.data('trainer', () => {
     feedback: 'idle', // idle | correct | wrong
     wrongChoices: {}, // id → true per le risposte sbagliate già cliccate
     solutionShown: false,
+    scaleProgress: 0, // "Suona la scala": note già suonate giuste
+    scaleStart: null, // tasto MIDI della prima tonica suonata
 
     init() {
       this.$watch('lang', () => this.save());
@@ -158,6 +160,7 @@ Alpine.data('trainer', () => {
     get chordKeys() {
       if (this.mode === 'exercise') {
         const q = this.question;
+        if (q?.exercise === 'playScale') return [];
         const visible = q && (q.exercise === 'nameChord' || this.solutionShown);
         return visible ? questionMidi(q) : [];
       }
@@ -292,6 +295,7 @@ Alpine.data('trainer', () => {
     midiNoteOn(note, velocity) {
       if (this.midiSound) playNote(note, { velocity: 0.3 + (velocity / 127) * 0.5 });
       this.held = { ...this.held, [note]: true };
+      if (this.isScaleExercise) this.judgeScaleNote(note);
       this.scheduleRecognition();
     },
 
@@ -303,10 +307,10 @@ Alpine.data('trainer', () => {
 
     scheduleRecognition() {
       clearTimeout(this._recognitionTimer);
-      const delay = this.isMidiExercise ? EXERCISE_DELAY_MS : RECOGNITION_DELAY_MS;
+      const delay = this.isMidiExercise && !this.isScaleExercise ? EXERCISE_DELAY_MS : RECOGNITION_DELAY_MS;
       this._recognitionTimer = setTimeout(() => {
         this.heldStable = Object.keys(this.held).map(Number);
-        if (this.isMidiExercise) this.judgeHeld();
+        if (this.isMidiExercise && !this.isScaleExercise) this.judgeHeld();
       }, delay);
     },
 
@@ -332,6 +336,10 @@ Alpine.data('trainer', () => {
       return this.mode === 'exercise' && !!this.question && EXERCISES[this.exercise].midi;
     },
 
+    get isScaleExercise() {
+      return this.mode === 'exercise' && this.question?.exercise === 'playScale';
+    },
+
     setMode(mode) {
       this.mode = mode;
       if (mode === 'exercise') this.newQuestion();
@@ -352,6 +360,8 @@ Alpine.data('trainer', () => {
       this.feedback = 'idle';
       this.wrongChoices = {};
       this.solutionShown = false;
+      this.scaleProgress = 0;
+      this.scaleStart = null;
     },
 
     succeed() {
@@ -365,6 +375,24 @@ Alpine.data('trainer', () => {
       const result = judgeMidi(this.question, this.heldStable);
       if (result === 'correct') this.succeed();
       else this.feedback = result === 'wrong' ? 'wrong' : 'idle';
+    },
+
+    // Ogni nota conta appena premuta. Con una nota sbagliata si resta su quella da suonare.
+    judgeScaleNote(midi) {
+      if (this.feedback === 'correct') return;
+      if (!judgeScaleNote(this.question, this.scaleProgress, this.scaleStart, midi)) {
+        this.feedback = 'wrong';
+        return;
+      }
+      if (this.scaleProgress === 0) this.scaleStart = midi;
+      this.scaleProgress++;
+      this.feedback = 'idle';
+      if (this.scaleProgress === this.question.offsets.length) this.succeed();
+    },
+
+    scaleChipLabel(note, i) {
+      const visible = this.opts.showScale || this.solutionShown || i < this.scaleProgress;
+      return visible ? this.name(note) : '?';
     },
 
     chooseAnswer(choice) {
@@ -394,6 +422,12 @@ Alpine.data('trainer', () => {
     },
 
     playQuestion() {
+      if (this.question.exercise === 'playScale') {
+        const midis = scaleRunMidi(this.question.tonic, this.question.type, 1);
+        playSequence(midis, 0.25);
+        midis.forEach((m, i) => this.flash(m, i * 250, 230));
+        return;
+      }
       const midis = questionMidi(this.question);
       playChord(midis, { arpeggio: this.arpeggio });
     },
@@ -403,7 +437,8 @@ Alpine.data('trainer', () => {
     },
 
     get questionKey() {
-      return this.question ? `in ${this.title}` : '';
+      if (!this.question) return '';
+      return this.question.exercise === 'playScale' ? "Un'ottava, in salita e in discesa" : `in ${this.title}`;
     },
 
     get prompt() {
@@ -411,6 +446,7 @@ Alpine.data('trainer', () => {
       if (!q) return '';
       if (q.exercise === 'playDegree') return q.chord.roman;
       if (q.exercise === 'playChord') return this.chordLabel(q.chord);
+      if (q.exercise === 'playScale') return this.title;
       return this.opts.answer === 'degree' ? 'Che grado è?' : 'Che accordo è?';
     },
 
@@ -420,8 +456,9 @@ Alpine.data('trainer', () => {
     },
 
     get feedbackText() {
-      if (this.feedback === 'correct') return 'Giusto!';
+      if (this.feedback === 'correct') return this.isScaleExercise ? 'Scala completata!' : 'Giusto!';
       if (this.feedback !== 'wrong') return '';
+      if (this.isScaleExercise) return 'Non è la nota giusta, riprova';
       if (!this.isMidiExercise) return 'No, riprova';
       const r = this.recognized;
       if (!r?.chord) return 'Non è questo, riprova';

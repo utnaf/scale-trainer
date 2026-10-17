@@ -1,6 +1,6 @@
-import { buildScale, diatonicChords, chordName, noteName, pitchClass } from '../js/theory.js';
+import { buildScale, diatonicChords, chordName, noteName, noteId, pitchClass } from '../js/theory.js';
 import {
-  DEFAULT_OPTIONS, makeQuestion, makeChoices, pickKey, judgeMidi, questionMidi,
+  DEFAULT_OPTIONS, makeQuestion, makeChoices, pickKey, judgeMidi, questionMidi, judgeScaleNote,
 } from '../js/exercises.js';
 import { test, assert, assertEqual } from './harness.js';
 
@@ -89,4 +89,36 @@ test('Esercizi: voicing della domanda nel rivolto', () => {
   const midis = questionMidi(q);
   assert(midis[0] >= 59 && midis[3] <= 59 + 24, `fuori tastiera: ${midis}`);
   assertEqual(pitchClass(q.chord.notes[3]), midis[0] % 12);
+});
+
+test('Suona la scala: un\'ottava su e giù', () => {
+  const q = makeQuestion('playScale', DEFAULT_OPTIONS, C_MAJOR);
+  assertEqual(q.offsets, [0, 2, 4, 5, 7, 9, 11, 12, 11, 9, 7, 5, 4, 2, 0]);
+  assertEqual(q.notes.map(noteId).join(' '), 'C D E F G A B C B A G F E D C');
+  const m = makeQuestion('playScale', DEFAULT_OPTIONS, { tonic: 'A', type: 'melodicMinor' });
+  assertEqual(m.notes.map(noteId).join(' '), 'A B C D E F# G# A G F E D C B A');
+  assertEqual(m.offsets, [0, 2, 3, 5, 7, 9, 11, 12, 10, 8, 7, 5, 3, 2, 0]);
+});
+
+test('Suona la scala: verifica nota per nota, ottava libera ma continua', () => {
+  const q = makeQuestion('playScale', DEFAULT_OPTIONS, { tonic: 'D', type: 'major' });
+  assertEqual(judgeScaleNote(q, 0, null, 50), true); // Re3
+  assertEqual(judgeScaleNote(q, 0, null, 74), true); // Re5: va bene qualsiasi ottava
+  assertEqual(judgeScaleNote(q, 0, null, 52), false);
+  assertEqual(judgeScaleNote(q, 1, 74, 76), true); // Mi sopra il Re di partenza
+  assertEqual(judgeScaleNote(q, 1, 74, 64), false); // Mi un'ottava sotto: scala non continua
+  assertEqual(judgeScaleNote(q, 2, 74, 78), true); // Fa♯
+  assertEqual(judgeScaleNote(q, 2, 74, 77), false); // Fa naturale
+  assertEqual(judgeScaleNote(q, 8, 74, 85), true); // discesa: Do♯
+});
+
+test('Suona la scala: tonalità casuale non si ripete', () => {
+  const rng = seeded(5);
+  const opts = { ...DEFAULT_OPTIONS, keyMode: 'random' };
+  let prev = null;
+  for (let i = 0; i < 50; i++) {
+    const q = makeQuestion('playScale', opts, C_MAJOR, prev, rng);
+    if (prev) assert(!(q.tonic === prev.tonic && q.type === prev.type), 'scala ripetuta');
+    prev = q;
+  }
 });
