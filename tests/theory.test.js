@@ -1,6 +1,6 @@
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleMidi, scaleRunMidi, tonicMidi, recognizeChord, noteName, noteId, parseNote, pitchClass,
+  chordMidi, scaleMidi, scaleRunMidi, tonicMidi, recognizeChord, scaleFormula, noteName, noteId, parseNote, pitchClass,
 } from '../js/theory.js';
 import { test, assertEqual } from './harness.js';
 
@@ -147,3 +147,15 @@ test('Riconoscimento: grafia della scala e casi limite', () => {
   assertEqual(recognizeChord([60, 62, 64, 65, 67], buildScale('C', 'major')), { chord: null });
 });
 
+
+test('Formula delle scale: intervalli e gradi rispetto alla maggiore', () => {
+  const f = (type) => scaleFormula('C', type);
+  assertEqual(f('major').steps, [2, 2, 1, 2, 2, 2, 1]);
+  assertEqual(f('major').degrees.map((d) => d.label), ['1', '2', '3', '4', '5', '6', '7']);
+  assertEqual(f('naturalMinor').degrees.map((d) => d.label), ['1', '2', '♭3', '4', '5', '♭6', '♭7']);
+  assertEqual(f('harmonicMinor').steps, [2, 1, 2, 2, 1, 3, 1]);
+  assertEqual(f('harmonicMinor').degrees.filter((d) => d.altered).map((d) => d.label), ['♭3', '♭6']);
+  assertEqual(f('melodicMinor').degrees.filter((d) => d.altered).map((d) => d.label), ['♭3']);
+  // Con tonica alterata i gradi restano relativi: in Fa♯ minore il ♭3 è La.
+  assertEqual(scaleFormula('F#', 'naturalMinor').degrees[2].label, '♭3');
+});

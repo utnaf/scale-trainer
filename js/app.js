@@ -1,7 +1,7 @@
 import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/module.esm.js';
 import {
   SCALE_TYPES, buildScale, keySignature, diatonicChords, chordName,
-  chordMidi, scaleRunMidi, tonicMidi, recognizeChord, INVERSIONS, noteName, parseNote, pitchClass,
+  chordMidi, scaleRunMidi, tonicMidi, recognizeChord, scaleFormula, INVERSIONS, noteName, parseNote, pitchClass,
 } from './theory.js';
 import { playNote, playChord, playSequence } from './audio.js';
 import { isMidiSupported, connectMidi } from './midi.js';
@@ -143,6 +143,52 @@ Alpine.data('trainer', () => {
 
     get title() {
       return `${this.name(this.scale[0])} ${SCALE_TYPES[this.activeKey.type].suffix}`;
+    },
+
+    // --- Formula della scala (teoria in contesto) ---
+
+    get formula() {
+      return scaleFormula(this.tonic, this.type);
+    },
+
+    get formulaCells() {
+      const { degrees } = this.formula;
+      return [...this.scale, this.scale[0]].map((note, index) => ({
+        index,
+        name: this.name(note),
+        tonic: index === 0 || index === 7,
+        degree: index === 7 ? '8' : degrees[index].label,
+        altered: index < 7 && degrees[index].altered,
+      }));
+    },
+
+    get formulaSteps() {
+      const labels = {
+        1: { label: 'S', title: 'semitono' },
+        2: { label: 'T', title: 'tono' },
+        3: { label: 'T+S', title: 'tono e mezzo (seconda aumentata)' },
+      };
+      return this.formula.steps.map((semitones) => ({ semitones, ...labels[semitones] }));
+    },
+
+    get formulaLegend() {
+      const legend = 'T = tono · S = semitono';
+      if (this.type === 'major') return legend;
+      return `${legend} · gradi confrontati con ${this.name(this.scale[0])} maggiore`;
+    },
+
+    get scaleSummary() {
+      const n = (i) => this.name(this.scale[i]);
+      return {
+        major: `È la scala di riferimento: le minori si descrivono come variazioni dei suoi gradi. `
+          + `Relativa minore: ${n(5)} minore, con la stessa armatura.`,
+        naturalMinor: `Rispetto alla maggiore abbassa il 3°, il 6° e il 7° grado. `
+          + `Relativa maggiore: ${n(2)} maggiore, con la stessa armatura.`,
+        harmonicMinor: `Come la naturale, ma con il 7° grado alzato: diventa la sensibile, a un semitono dalla tonica, `
+          + `e l'accordo sul V diventa maggiore. Tra 6° e 7° grado si crea un salto di tono e mezzo.`,
+        melodicMinor: `Come la naturale, ma con il 6° e il 7° grado alzati: rispetto alla maggiore cambia solo il 3°. `
+          + `In discesa, nella tradizione classica, si suona come la naturale (anche nel ▶).`,
+      }[this.type];
     },
 
     get chordRows() {

@@ -447,3 +447,35 @@ h1, h2, h3 { margin: 0; }
 .scale-progress li.done { background: var(--held-soft); border-color: var(--held); color: var(--text); }
 .scale-progress li.current { border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 2px var(--accent-soft); }
 .scale-progress li.wrong { border-color: var(--wrong); background: var(--wrong-soft); }
+
+/* Formula della scala */
+.scale-head { display: block; }
+.scale-head-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.formula { max-width: 560px; margin-top: 14px; }
+.formula-notes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.formula-note { display: grid; justify-items: center; gap: 2px; }
+.formula-note .note-chip { padding: 3px 0; width: 100%; text-align: center; }
+.formula-note .degree { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+.formula-note.altered .degree { color: var(--chord); }
+.formula-note.altered .note-chip { box-shadow: inset 0 0 0 2px var(--chord); }
+
+/* Gli intervalli stanno a metà tra due note: la riga è rientrata di mezza colonna per lato. */
+.formula-steps {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  padding: 0 calc((100% - 28px) / 16);
+  margin-top: 4px;
+}
+.step { text-align: center; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.step.augmented { color: var(--chord); }
+
+.scale-summary { margin: 12px 0 0; max-width: 62ch; }
+.formula-legend { margin: 6px 0 0; font-size: 0.8rem; color: var(--muted); }

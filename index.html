@@ -118,18 +118,27 @@
         </section>
 
         <section class="scale-head" x-show="mode === 'explore'">
-          <div>
+          <div class="scale-head-top">
             <h2 x-text="title"></h2>
-            <p class="scale-notes">
-              <template x-for="(n, i) in scale" :key="i">
-                <span class="note-chip" :class="{ tonic: i === 0 }" x-text="name(n)"></span>
-              </template>
-            </p>
-            <p class="hint" x-show="type === 'melodicMinor'">
-              Forma ascendente. In discesa si suona come la minore naturale (anche nel ▶).
-            </p>
+            <button class="play" @click="playScale()">▶ Suona la scala</button>
           </div>
-          <button class="play" @click="playScale()">▶ Suona la scala</button>
+          <div class="formula">
+            <div class="formula-notes">
+              <template x-for="cell in formulaCells" :key="cell.index">
+                <div class="formula-note" :class="{ altered: cell.altered }">
+                  <span class="degree" x-text="cell.degree"></span>
+                  <span class="note-chip" :class="{ tonic: cell.tonic }" x-text="cell.name"></span>
+                </div>
+              </template>
+            </div>
+            <div class="formula-steps">
+              <template x-for="(step, i) in formulaSteps" :key="i">
+                <span class="step" :class="{ augmented: step.semitones === 3 }" :title="step.title" x-text="step.label"></span>
+              </template>
+            </div>
+          </div>
+          <p class="scale-summary" x-text="scaleSummary"></p>
+          <p class="formula-legend" x-text="formulaLegend"></p>
         </section>
 
         <section class="chords" x-show="mode === 'explore'">

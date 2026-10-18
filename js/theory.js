@@ -93,6 +93,20 @@ export function keySignature(tonicStr, type) {
   return { count: Math.abs(sum), kind: sum > 0 ? 'sharp' : sum < 0 ? 'flat' : null };
 }
 
+// Formula della scala: intervalli in semitoni tra gradi consecutivi (tonica ripetuta in alto)
+// e gradi confrontati con la maggiore sulla stessa tonica, es. ['1','2','♭3',…].
+export function scaleFormula(tonicStr, type) {
+  const scale = buildScale(tonicStr, type);
+  const major = buildScale(tonicStr, 'major');
+  const pcs = [...scale, scale[0]].map(pitchClass);
+  const steps = pcs.slice(1).map((pc, i) => mod(pc - pcs[i], 12));
+  const degrees = scale.map((note, i) => {
+    const alteration = mod(pitchClass(note) - pitchClass(major[i]) + 6, 12) - 6;
+    return { label: (ACC_SYMBOLS[alteration] ?? '') + (i + 1), altered: alteration !== 0 };
+  });
+  return { steps, degrees };
+}
+
 // Qualità degli accordi, indicizzate dagli intervalli (in semitoni) dalla fondamentale.
 // upper: numerale romano maiuscolo; romanSuffix: simbolo dopo il numerale.
 export const CHORD_QUALITIES = {
