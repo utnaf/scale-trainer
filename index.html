@@ -72,6 +72,10 @@
               <span x-text="`Scala scelta (${exploreKeyLabel})`"></span>
             </label>
             <label><input type="radio" value="random" x-model="opts.keyMode"> Casuale</label>
+            <label x-show="exercise === 'playScale'">
+              <input type="radio" value="allOfTonic" x-model="opts.keyMode">
+              <span x-text="`Tutte le scale di ${exploreTonicName}, poi lungo il circolo delle quinte`"></span>
+            </label>
             <div class="sub-options" x-show="opts.keyMode === 'random'">
               <label><input type="checkbox" x-model="opts.majors" :disabled="!opts.minors"> Maggiori</label>
               <label><input type="checkbox" x-model="opts.minors" :disabled="!opts.majors"> Minori (tutte)</label>
@@ -93,10 +97,13 @@
           <ol class="scale-progress" x-show="exercise === 'playScale'">
             <template x-for="(n, i) in question?.notes ?? []" :key="i">
               <li
-                :class="{ done: i < scaleProgress, current: i === scaleProgress && feedback !== 'correct', wrong: i === scaleProgress && feedback === 'wrong' }"
+                :class="{ done: i < scaleProgress, current: i === scaleProgress && feedback !== 'correct', wrong: i === scaleProgress && feedback === 'wrong', changed: question?.changed?.[i] }"
                 x-text="scaleChipLabel(n, i)"></li>
             </template>
           </ol>
+          <p class="hint" x-show="exercise === 'playScale' && hasChangedNotes">
+            Contornate in arancione le note che cambiano rispetto alla scala precedente.
+          </p>
 
           <div class="choices" x-show="exercise === 'nameChord'">
             <template x-for="c in question?.choices ?? []" :key="c.id">

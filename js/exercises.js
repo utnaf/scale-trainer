@@ -2,7 +2,7 @@
 
 import {
   SCALE_TYPES, CHORD_QUALITIES, buildScale, diatonicChords, chordMidi, tonicMidi, pitchClass, noteId,
-  scaleRunMidi,
+  scaleRunMidi, keySignature, parseNote,
 } from './theory.js';
 
 export const EXERCISES = {
@@ -16,7 +16,7 @@ export const DEFAULT_OPTIONS = {
   triads: true,
   sevenths: true,
   inversions: false, // MIDI: rivolto richiesto. Riconosci: mostra anche rivolti.
-  keyMode: 'current', // 'current' | 'random'
+  keyMode: 'current', // 'current' | 'random' | 'allOfTonic' (solo "Suona la scala")
   majors: true,
   minors: true,
   answer: 'name', // Riconosci: 'name' | 'degree'
@@ -57,7 +57,40 @@ function scaleQuestion(tonic, type) {
   return { exercise: 'playScale', tonic, type, scale, notes, offsets: run.map((m) => m - run[0]) };
 }
 
+// "Tutte le scale di una tonica": le quattro scale in quest'ordine, poi la tonica
+// successiva sul circolo delle quinte.
+export const CYCLE_TYPES = ['major', 'naturalMinor', 'harmonicMinor', 'melodicMinor'];
+
+// Grafia della tonica per questa scala: tra le tonalità con armatura standard, quella con meno
+// alterazioni (es. Re♭ maggiore ma Do♯ minore). A parità vince la grafia `preferred`.
+export function tonicFor(pc, type, preferred) {
+  const candidates = SCALE_TYPES[type].tonics.filter((t) => pitchClass(parseNote(t)) === pc);
+  const cost = (t) => keySignature(t, type).count * 2 - (t === preferred ? 1 : 0);
+  return candidates.reduce((best, t) => (cost(t) < cost(best) ? t : best));
+}
+
+function cycleQuestion(current, previous) {
+  let pc = pitchClass(parseNote(current.tonic));
+  let index = 0;
+  if (previous?.cycle) {
+    ({ pc, index } = previous.cycle);
+    index++;
+    if (index === CYCLE_TYPES.length) {
+      index = 0;
+      pc = (pc + 7) % 12;
+    }
+  }
+  const type = CYCLE_TYPES[index];
+  const q = scaleQuestion(tonicFor(pc, type, current.tonic), type);
+  q.cycle = { pc, index };
+  // Note che cambiano rispetto alla scala precedente della stessa tonica (confronto per suono).
+  const before = index > 0 ? previous?.notes : null;
+  q.changed = q.notes.map((n, i) => !!before && pitchClass(n) !== pitchClass(before[i]));
+  return q;
+}
+
 export function makeQuestion(exercise, opts, current, previous = null, rng = Math.random) {
+  if (exercise === 'playScale' && opts.keyMode === 'allOfTonic') return cycleQuestion(current, previous);
   if (exercise === 'playScale') {
     for (let attempt = 0; ; attempt++) {
       const { tonic, type } = pickKey(opts, current, rng);

@@ -8,7 +8,7 @@ La modalità **Esercizi** propone quattro esercizi liberi, senza punteggi:
 - **Suona il grado** (MIDI): l'app chiede per esempio "ii7" e tu lo suoni;
 - **Suona l'accordo** (MIDI): l'app dà il nome, per esempio "Fa♯m7", e tu lo suoni;
 - **Riconosci l'accordo**: un accordo si accende sulla tastiera e scegli fra 4 risposte (nome o grado);
-- **Suona la scala** (MIDI): un'ottava in salita e discesa, verificata nota per nota in qualsiasi ottava.
+- **Suona la scala** (MIDI): un'ottava in salita e discesa, verificata nota per nota in qualsiasi ottava. Con "Tutte le scale di una tonica" si suonano in fila maggiore, minore naturale, armonica e melodica, poi si passa alla tonica successiva sul circolo delle quinte.
 
 Nessuna build e nessuna dipendenza da installare: Alpine.js viene caricato da CDN.
 

@@ -1,6 +1,6 @@
 import { buildScale, diatonicChords, chordName, noteName, noteId, pitchClass } from '../js/theory.js';
 import {
-  DEFAULT_OPTIONS, makeQuestion, makeChoices, pickKey, judgeMidi, questionMidi, judgeScaleNote,
+  DEFAULT_OPTIONS, makeQuestion, makeChoices, pickKey, judgeMidi, questionMidi, judgeScaleNote, tonicFor,
 } from '../js/exercises.js';
 import { test, assert, assertEqual } from './harness.js';
 
@@ -121,4 +121,45 @@ test('Suona la scala: tonalità casuale non si ripete', () => {
     if (prev) assert(!(q.tonic === prev.tonic && q.type === prev.type), 'scala ripetuta');
     prev = q;
   }
+});
+
+test('Tutte le scale di una tonica: ordine e circolo delle quinte', () => {
+  const opts = { ...DEFAULT_OPTIONS, keyMode: 'allOfTonic' };
+  let q = null;
+  const seq = [];
+  for (let i = 0; i < 9; i++) {
+    q = makeQuestion('playScale', opts, C_MAJOR, q);
+    seq.push(`${q.tonic} ${q.type}`);
+  }
+  assertEqual(seq, [
+    'C major', 'C naturalMinor', 'C harmonicMinor', 'C melodicMinor',
+    'G major', 'G naturalMinor', 'G harmonicMinor', 'G melodicMinor',
+    'D major',
+  ]);
+});
+
+test('Tutte le scale di una tonica: grafia con meno alterazioni', () => {
+  assertEqual(tonicFor(1, 'major', 'C#'), 'Db');
+  assertEqual(tonicFor(1, 'naturalMinor', 'C#'), 'C#');
+  assertEqual(tonicFor(8, 'naturalMinor', 'Ab'), 'G#');
+  assertEqual(tonicFor(6, 'major', 'Gb'), 'Gb'); // Fa♯ e Sol♭: pari, vince quella scelta
+  assertEqual(tonicFor(6, 'major', 'C'), 'F#');
+});
+
+test('Tutte le scale di una tonica: note che cambiano', () => {
+  const opts = { ...DEFAULT_OPTIONS, keyMode: 'allOfTonic' };
+  const changedIdx = (q) => q.changed.flatMap((c, i) => (c ? [i] : []));
+  const major = makeQuestion('playScale', opts, C_MAJOR);
+  assertEqual(changedIdx(major), []);
+  const natural = makeQuestion('playScale', opts, C_MAJOR, major);
+  assertEqual(changedIdx(natural), [2, 5, 6, 8, 9, 12]); // Mi♭ La♭ Si♭, su e giù
+  const harmonic = makeQuestion('playScale', opts, C_MAJOR, natural);
+  assertEqual(changedIdx(harmonic), [6, 8]); // Si naturale
+  const melodic = makeQuestion('playScale', opts, C_MAJOR, harmonic);
+  assertEqual(changedIdx(melodic), [5, 8]); // La in salita, Si♭ in discesa
+  // Re♭ maggiore → Do♯ minore: grafia diversa ma si confronta il suono.
+  const dbMajor = makeQuestion('playScale', opts, { tonic: 'Db', type: 'major' });
+  const csMinor = makeQuestion('playScale', opts, { tonic: 'Db', type: 'major' }, dbMajor);
+  assertEqual(csMinor.tonic, 'C#');
+  assertEqual(changedIdx(csMinor), [2, 5, 6, 8, 9, 12]);
 });

@@ -88,11 +88,16 @@ Alpine.data('trainer', () => {
       this.$watch('lang', () => this.save());
       this.$watch('arpeggio', () => this.save());
       this.$watch('midiSound', () => this.save());
+      // "Mostra la scala" è solo un aiuto visivo: non cambia la domanda in corso.
+      const questionOpts = () => JSON.stringify({ ...this.opts, showScale: null });
+      let lastQuestionOpts = questionOpts();
       this.$watch('opts', () => {
         this.save();
-        this.newQuestion();
+        if (questionOpts() === lastQuestionOpts) return;
+        lastQuestionOpts = questionOpts();
+        this.newQuestion({ restart: true });
       });
-      if (this.mode === 'exercise') this.newQuestion();
+      if (this.mode === 'exercise') this.newQuestion({ restart: true });
     },
 
     save() {
@@ -388,21 +393,26 @@ Alpine.data('trainer', () => {
 
     setMode(mode) {
       this.mode = mode;
-      if (mode === 'exercise') this.newQuestion();
+      if (mode === 'exercise') this.newQuestion({ restart: true });
       else clearTimeout(this._nextTimer);
       this.save();
     },
 
     setExercise(id) {
       this.exercise = id;
-      this.newQuestion();
+      // "Tutte le scale di una tonica" esiste solo in "Suona la scala".
+      if (id !== 'playScale' && this.opts.keyMode === 'allOfTonic') this.opts.keyMode = 'current';
+      this.newQuestion({ restart: true });
       this.save();
     },
 
-    newQuestion() {
+    // restart: riparte da capo invece di continuare dalla domanda precedente
+    // (conta per il giro "tutte le scale di una tonica").
+    newQuestion({ restart = false } = {}) {
       if (this.mode !== 'exercise') return;
       clearTimeout(this._nextTimer);
-      this.question = makeQuestion(this.exercise, this.opts, { tonic: this.tonic, type: this.type }, this.question);
+      const previous = restart ? null : this.question;
+      this.question = makeQuestion(this.exercise, this.opts, { tonic: this.tonic, type: this.type }, previous);
       this.feedback = 'idle';
       this.wrongChoices = {};
       this.solutionShown = false;
@@ -484,7 +494,19 @@ Alpine.data('trainer', () => {
 
     get questionKey() {
       if (!this.question) return '';
-      return this.question.exercise === 'playScale' ? "Un'ottava, in salita e in discesa" : `in ${this.title}`;
+      if (this.question.exercise !== 'playScale') return `in ${this.title}`;
+      const cycle = this.question.cycle;
+      return cycle
+        ? `Scala ${cycle.index + 1} di 4 · un'ottava, in salita e in discesa`
+        : "Un'ottava, in salita e in discesa";
+    },
+
+    get exploreTonicName() {
+      return this.name(parseNote(this.tonic));
+    },
+
+    get hasChangedNotes() {
+      return !!this.question?.changed?.some(Boolean);
     },
 
     get prompt() {
